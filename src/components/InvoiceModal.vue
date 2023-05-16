@@ -61,16 +61,16 @@
             <div class="invoice-work flex flex-column">
                 <div class="payment flex">
                     <div class="input flex flex-column">
-                        <label for="invoiceDate ">Дата счета</label>
+                        <label for="invoiceDate">Дата счета</label>
                         <input disabled type="text" id="invoiceDate" v-model="invoiceDate" />
                     </div>
                     <div class="input flex flex-column">
-                        <label for="paymentDueDateUnix ">Срок оплаты</label>
-                        <input disabled type="text" id="paymentDueDateUnix" v-model="paymentDueDateUnix" />
+                        <label for="paymentDueDate">Срок оплаты</label>
+                        <input disabled type="text" id="paymentDueDate" v-model="paymentDueDate" />
                     </div>
                 </div> 
                 <div class="input flex flex-column">
-                    <label for="paymentTerms ">Условия оплаты</label>
+                    <label for="paymentTerms">Условия оплаты</label>
                     <select required type="text" id="paymentTerms" v-model="paymentTerms">
                     <option value="30">30 Дней</option>    
                     <option value="60">60 Дней</option>    
@@ -83,7 +83,7 @@
                 <div class="work-items">
                     <h3>Список продуктов</h3>
                     <table class="item-list">
-                        <tr class="table-heading">
+                        <tr class="table-heading flex">
                             <th class="item-name">Название продукта</th>
                             <th class="qty">Количество</th>
                             <th class="price">Цена</th>
@@ -119,10 +119,14 @@
 </template>
 
 <script>
+import db from '../firebase/firebaseInit';
+import { uid } from 'uid';
+import { mapMutations } from 'vuex';
     export default {
     name: "invoiceModal",
     data() {
         return {
+            dateOptions: { year: "numeric", month: "short", day: "numeric" },
             billerStreetAddress: null,
             billerCity: null,
             billerZipCode: null,
@@ -144,166 +148,259 @@
             invoiceItemList: [],
             invoiceTotal: 0,
             }
+    },
+    created() {
+
+        // Current Date
+        this.invoiceDateUnix = Date.now();
+        this.invoiceDate = new Date(this.invoiceDateUnix).toLocaleDateString("en-us", this.dateOptions);
+    },
+    methods: {
+        ...mapMutations(['TOGGLE_INVOICE']),
+        
+        closeInvoice() {
+                this.TOGGLE_INVOICE()
         },
+
+        addNewInvoiceItem() {
+            this.invoiceItemList.push({
+                id: uid(),
+                itemName: '',
+                qty: '',
+                price: 0,
+                total: 0,
+                })
+        },
+
+        deleteInvoiceItem(id) {
+            this.invoiceItemList = this.invoiceItemList.filter(item => item.id !== id);
+        },
+
+        calInvoiceTotal() {
+            this.invoiceTotal = 0;
+            this.invoiceItemList.forEach(item => {
+                this.invoiceTotal += item.total
+            })
+        },
+
+        publishInvoice() {
+            this.invoicePending = true;
+        },
+
+        saveDraft() {
+            this.invoiceDate = true;
+        },
+
+        async uploadInvoice() {
+            if (this.invoiceItemList.length <= 0) {
+                alert('Пожалуйста, убедитесь, что вы заполнили рабочие элементы!')
+                return;
+            }
+
+            this.calInvoiceTotal();
+
+            const dataBase = db.collection('invoices').doc();
+
+            await dataBase.set({
+                invoiceId: uid(6),
+                billerStreetAddress: this.billerStreetAddress,
+                billerCity: this.billerCity,
+                billerZipCode: this.billerZipCode,
+                billerCountry: this.billerCountry,
+                clientName: this.clientName,
+                clientEmail: this.clientEmail,
+                clientStreetAddress: this.clientStreetAddress,
+                clientCity: this.clientCity,
+                clientZipCode: this.clientZipCode,
+                clientCountry: this.clientCountry,
+                paymentTerms: this.paymentTerms,
+                paymentDueDate: this.paymentDueDate,
+                paymentDueDateUnix: this.paymentDueDateUnix,
+                productDescription: this.productDescription,
+                invoiceItemList: this.invoiceItemList,
+                invoiceTotal: this.invoiceTotal,
+            });
+
+            this.TOGGLE_INVOICE();
+        },
+
+        submitForm() {
+            this.uploadInvoice();    
+        },
+            
+    },
+    watch: {
+        paymentTerms() {
+            const futureDate = new Date();
+            this.paymentDueDateUnix = futureDate.setDate(futureDate.getDate() + parseInt(this.paymentTerms));
+            this.paymentDueDate = new Date(this.paymentDueDateUnix).toLocaleDateString("en-us", this.dateOptions);
+            }
+        }
     }
 </script>
 
 <style lang="scss" scoped>
 .invoice-wrap {
-    position: fixed;
-    top: 0;
-    left: 0;
-    background-color: transparent;
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100vh;
+  overflow: scroll;
+  &::-webkit-scrollbar {
+    display: none;
+  }
+  @media (min-width: 900px) {
+    left: 90px;
+  }
+
+  .invoice-content {
+    position: relative;
+    padding: 56px;
+    max-width: 700px;
     width: 100%;
-    height: 100vh;
-    overflow: scroll;
-    @media(min-width: 900px) {
-        left:90px;
+    background-color: #141625;
+    color: #fff;
+    box-shadow: 10px 4px 6px -1px rgba(0, 0, 0, 0.2), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+
+    h1 {
+      margin-bottom: 48px;
+      color: #fff;
     }
-    .invoice-content {
-        position: relative;
-        padding: 56px;
-        max-width: 700px;
-        width: 100%;
-        background-color: #141625;
-        color: #fff;
-        box-shadow: 10px 4px 6px -1px rgba(0, 0, 0, 0.2), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
 
-        h1 {
-            margin-bottom: 48px;
-            color: #fff;
+    h3 {
+      margin-bottom: 16px;
+      font-size: 18px;
+      color: #777f98;
+    }
+
+    h4 {
+      color: #7c5dfa;
+      font-size: 12px;
+      margin-bottom: 24px;
+    }
+
+    // Bill To / Bill From
+    .bill-to,
+    .bill-from {
+      margin-bottom: 48px;
+
+      .location-details {
+        gap: 16px;
+        div {
+          flex: 1;
         }
+      }
+    }
 
-        h3 {
-            margin-bottom: 16px;
-            font-size: 18px;
-            color: #777f98;
+    // Invoice Work
+
+    .invoice-work {
+      .payment {
+        gap: 24px;
+        div {
+          flex: 1;
         }
+      }
 
-        h4 {
-            color: #7c5dfa;
+      .work-items {
+        .item-list {
+          width: 100%;
+
+          // Item Table Styling
+          .table-heading,
+          .table-items {
+            gap: 16px;
             font-size: 12px;
+
+            .item-name {
+              flex-basis: 50%;
+            }
+
+            .qty {
+              flex-basis: 10%;
+            }
+
+            .price {
+              flex-basis: 20%;
+            }
+
+            .total {
+              flex-basis: 20%;
+              align-self: center;
+            }
+          }
+
+          .table-heading {
+            margin-bottom: 16px;
+
+            th {
+              text-align: left;
+            }
+          }
+
+          .table-items {
+            position: relative;
             margin-bottom: 24px;
-        }
-        // Bill To / Bill from
-        .bill-from,
-        .bill-to {
-            margin-bottom: 48px;
-            .location-details {
-                gap: 16px;
-                div {
-                    flex: 1;
-                }
+
+            img {
+              position: absolute;
+              top: 15px;
+              right: 0;
+              width: 12px;
+              height: 16px;
             }
+          }
         }
 
-        .invoice-work {
-            .payment {
-                gap: 24px;
-                div{
-                    flex: 1;
-                }
-            }
-            // Invoice Work
-            .work-items {
-                .item-list {
-                    width: 100%;
+        .button {
+          color: #fff;
+          background-color: #252945;
+          align-items: center;
+          justify-content: center;
+          width: 100%;
 
-                    // Item Table Styling
-                    .table-heading,
-                    .table-items {
-                        gap: 16px;
-                        font-size: 12px;
-
-                        .item-name {
-                            flex-basis: 50%;
-                        }
-
-                        .qty {
-                            flex-basis: 10%;
-                        }
-
-                        .price {
-                            flex-basis: 20%;
-                        }
-
-                        .total {
-                            flex-basis: 20%;
-                            align-self: center;
-                        }
-                    }
-
-                    .table-heading {
-                        margin-bottom: 16px;
-
-                        th {
-                            text-align: left;
-                        }
-                    }
-
-                    .table-items {
-                        position: relative;
-                        margin-bottom: 24px;
-
-                        img {
-                            position: absolute;
-                            top: 15px;
-                            right: 0;
-                            width: 12px;
-                            height: 16px;
-                        }
-                    }
-                }
-
-                .button {
-                    color: #fff;
-                    background-color: #252945;
-                    align-items: center;
-                    justify-content: center;
-                    width: 100%;
-
-                    img {
-                        margin-right: 4px;
-                    }
-                }
-            }
+          img {
+            margin-right: 4px;
+          }
         }
-        
-            .save {
-                margin-top: 60px;
-
-                div {
-                    flex: 1;
-                }
-
-                .right {
-                    justify-content: flex-end;
-                }
-            }
+      }
     }
 
-    .input {
-        margin-bottom: 24px;
+    .save {
+      margin-top: 60px;
+
+      div {
+        flex: 1;
+      }
+
+      .right {
+        justify-content: flex-end;
+      }
     }
+  }
 
-    label {
-        font-size: 12px;
-        margin-bottom: 6px;
+  .input {
+    margin-bottom: 24px;
+  }
+
+  label {
+    font-size: 12px;
+    margin-bottom: 6px;
+  }
+
+  input,
+  select {
+    width: 100%;
+    background-color: #1e2139;
+    color: #fff;
+    border-radius: 4px;
+    padding: 12px 4px;
+    border: none;
+
+    &:focus {
+      outline: none;
     }
-
-    input,
-    select {
-        width: 100%;
-        background-color: #1e2139;
-        color: #fff;
-        border-radius: 4px;
-        padding: 12px 4px;
-        border: none;
-
-
-        &:focus {
-            outline: none;
-        }
-    }
+  }
 }
 </style>

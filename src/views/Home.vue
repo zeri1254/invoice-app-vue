@@ -1,54 +1,94 @@
 <template>
-  <div class="home container">
-    <!-- header -->
-    <div class="header flex">
-      <div class="left flex flex-column">
-        <h1>Счета</h1>
-        <span>Здесь будут счета</span>
-      </div>
-      <div class="right flex">
-        <div @click="toggleFilterMenu" class="filter flex">
-          <span>Фильтер статуса</span>
-          <img src="@/assets/icon-arrow-down.svg" alt="">
-          <ul v-show="filterMenu" class="filter-menu">
-            <li>Черновик</li>
-            <li>Ожидание</li>
-            <li>Оплачено</li>
-            <li>Очистить фильтр</li>
-          </ul>
+    <div class="home container">
+      <!-- Header -->
+      <div class="header flex">
+        <div class="left flex flex-column">
+          <h1>Счета</h1>
+          <span>Всего количество счетов:{{ invoiceData.length }}</span>
         </div>
-        <div @click="newInvoice" class="button flex">
-          <div class="inner-button flex">
-            <img src="@/assets/icon-plus.svg" alt="">
+        <div class="right flex">
+          <div @click="toggleFilterMenu" class="filter flex">
+            <span
+              >Фильтр статуса <span v-if="filteredInvoice">: {{ filteredInvoice }}</span></span
+            >
+            <img src="@/assets/icon-arrow-down.svg" alt="" />
+            <ul v-show="filterMenu" class="filter-menu">
+              <li @click="filteredInvoices">Черновик</li>
+              <li @click="filteredInvoices">Ожидание</li>
+              <li @click="filteredInvoices">Оплачено</li>
+              <li @click="filteredInvoices">Очистить фильтр</li>
+            </ul>
           </div>
-          <span>Новый счет</span>
+          <div @click="newInvoice" class="button flex">
+            <div class="inner-button flex">
+              <img src="@/assets/icon-plus.svg" alt="" />
+            </div>
+            <span>Новый счет</span>
+          </div>
         </div>
+      </div>
+      <!-- Invoices -->
+      <div v-if="invoiceData.length > 0">
+        <Invoice v-for="(invoice, index) in filteredData" :invoice="invoice" :key="index" />
+      </div>
+      <div v-else class="empty flex flex-column">
+        <img src="@/assets/illustration-empty.svg" alt="" />
+        <h3>Здесь ничего нет</h3>
+        <p>Создайте новый счет</p>
       </div>
     </div>
-  </div>
 </template>
 
 <script>
-import { mapMutations } from 'vuex';
+import Invoice from "../components/Invoice";
+import { mapMutations, mapState } from "vuex";
 export default {
-  name: 'HomePage',
+  name: "HomePage",
   data() {
     return {
       filterMenu: null,
-    }
+      filteredInvoice: null,
+    };
   },
-  components: {},
+  components: {
+    Invoice,
+  },
   methods: {
-    ...mapMutations(['TOGGLE_INVOICE']),
+    ...mapMutations(["TOGGLE_INVOICE"]),
     newInvoice() {
       this.TOGGLE_INVOICE();
     },
     toggleFilterMenu() {
       this.filterMenu = !this.filterMenu;
-    }
-  }
+    },
+    filteredInvoices(e) {
+      if (e.target.innerText === "Clear Filter") {
+        this.filteredInvoice = null;
+        return;
+      }
+      this.filteredInvoice = e.target.innerText;
+    },
+  },
+  computed: {
+    ...mapState(["invoiceData"]),
+    filteredData() {
+      return this.invoiceData.filter((invoice) => {
+        if (this.filteredInvoice === "Draft") {
+          return invoice.invoiceDraft === true;
+        }
+        if (this.filteredInvoice === "Pending") {
+          return invoice.invoicePending === true;
+        }
+        if (this.filteredInvoice === "Paid") {
+          return invoice.invoicePaid === true;
+        }
+        return invoice;
+      });
+    },
+  },
 };
 </script>
+
 
 <style lang="scss" scoped>
 .home {
